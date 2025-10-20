@@ -26,6 +26,41 @@ if not os.path.exists(templates_dir):
 # simple in-memory cache for geocoding (module-level, not persisted)
 geocode_cache = {}
 
+
+def _pc_norm(s):
+    return None if pd.isna(s) else str(s).strip().upper()
+
+def fetch_postcodes_bulk(postcodes):
+    """
+    postcodes: iterable of already-normalised strings
+    returns dict: { "SW1A 1AA": (lat, lon), ... }  (None if not found)
+    Uses Postcodes.io bulk endpoint (100/post).
+    """
+    pcs = [p for p in map(_pc_norm, postcodes) if p]
+    unique = sorted(set(pcs))
+    out = {}
+    if not unique:
+        return out
+
+    url = "https://api.postcodes.io/postcodes"
+    s = requests.Session()
+    for i in range(0, len(unique), 100):
+        chunk = unique[i:i+100]
+        r = s.post(url, json={"postcodes": chunk}, timeout=10)
+        if not r.ok:
+            # be tolerant—skip this chunk rather than crash
+            continue
+        data = r.json()
+        for item in data.get("result", []):
+            q = item.get("query")
+            res = item.get("result")
+            if q and res:
+                out[q] = (res["latitude"], res["longitude"])
+            elif q:
+                out[q] = (None, None)
+    return out
+
+
 def unpack_geom(g):
     if isinstance(g, str):
         try:
@@ -176,8 +211,18 @@ def upload_file():
             return 'File must contain Employee Number and postcode columns', 400
 
         # Geocode postcodes
-        df['latitude'] = df['postcode'].apply(lambda x: get_coordinates(x)[0] if get_coordinates(x) else None)
-        df['longitude'] = df['postcode'].apply(lambda x: get_coordinates(x)[1] if get_coordinates(x) else None)
+       # Geocode postcodes (bulk via postcodes.io)
+        df["postcode_norm"] = df["postcode"].map(_pc_norm)
+        lookup = fetch_postcodes_bulk(df["postcode_norm"])
+        coords = df["postcode_norm"].map(lookup)  # tuples or (None, None)
+
+        df[["latitude","longitude"]] = pd.DataFrame(
+            coords.apply(lambda t: t if t else (None, None)).tolist(),
+            index=df.index
+        )
+
+        # (optional) drop helper
+        df.drop(columns=["postcode_norm"], inplace=True)
 
         # Save employee data to session
         session['employee_data'] = df.to_dict('records')
@@ -338,10 +383,26 @@ def upload_route():
             return f'Missing required column: {col}', 400
 
     # Geocode start and end postcodes
-    df['start_latitude'] = df['start_postcode'].apply(lambda x: get_coordinates(x)[0] if get_coordinates(x) else None)
-    df['start_longitude'] = df['start_postcode'].apply(lambda x: get_coordinates(x)[1] if get_coordinates(x) else None)
-    df['end_latitude'] = df['end_postcode'].apply(lambda x: get_coordinates(x)[0] if get_coordinates(x) else None)
-    df['end_longitude'] = df['end_postcode'].apply(lambda x: get_coordinates(x)[1] if get_coordinates(x) else None)
+    # Bulk geocode start & end postcodes
+    df["start_pc_norm"] = df["start_postcode"].map(_pc_norm)
+    df["end_pc_norm"]   = df["end_postcode"].map(_pc_norm)
+
+    start_lookup = fetch_postcodes_bulk(df["start_pc_norm"])
+    end_lookup   = fetch_postcodes_bulk(df["end_pc_norm"])
+
+    start_coords = df["start_pc_norm"].map(start_lookup)
+    end_coords   = df["end_pc_norm"].map(end_lookup)
+
+    df[["start_latitude","start_longitude"]] = pd.DataFrame(
+        start_coords.apply(lambda t: t if t else (None, None)).tolist(),
+        index=df.index
+    )
+    df[["end_latitude","end_longitude"]] = pd.DataFrame(
+        end_coords.apply(lambda t: t if t else (None, None)).tolist(),
+        index=df.index
+    )
+
+    df.drop(columns=["start_pc_norm","end_pc_norm"], inplace=True)
 
     # Add distance and duration columns using OSRM
     distances = []
