@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_6cc0f32b7e8dde050879ada6cf41329c {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_6cc0f32b7e8dde050879ada6cf41329c" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_6cc0f32b7e8dde050879ada6cf41329c = L.map(
+                "map_6cc0f32b7e8dde050879ada6cf41329c",
+                {
+                    center: [53.09961, -3.0332499],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 10,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_2886f00d4905b541bd32f213495ace88 = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_2886f00d4905b541bd32f213495ace88.addTo(map_6cc0f32b7e8dde050879ada6cf41329c);
+        
+    
+            var marker_288be0f4c369a7f023d2256bf63e2bce = L.marker(
+                [53.09961, -3.0332499],
+                {
+}
+            ).addTo(map_6cc0f32b7e8dde050879ada6cf41329c);
+        
+    
+        var popup_caba9611b4ec32af4b00344f90d40623 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_4e1236f22cde060b7029cf490831454e = $(`<div id="html_4e1236f22cde060b7029cf490831454e" style="width: 100.0%; height: 100.0%;">Employee: 12345<br>Postcode: LL12 9YD</div>`)[0];
+                popup_caba9611b4ec32af4b00344f90d40623.setContent(html_4e1236f22cde060b7029cf490831454e);
+            
+        
+
+        marker_288be0f4c369a7f023d2256bf63e2bce.bindPopup(popup_caba9611b4ec32af4b00344f90d40623)
+        ;
+
+        
+    
+    
+            var marker_a2a663e0992535c867e65508efdfb3ab = L.marker(
+                [53.95922, -1.08713],
+                {
+}
+            ).addTo(map_6cc0f32b7e8dde050879ada6cf41329c);
+        
+    
+        var popup_82895e68cea1c950bd5ce80dfecc0dd0 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_b56bfcd06b7e65a40ad1f79a3386aaeb = $(`<div id="html_b56bfcd06b7e65a40ad1f79a3386aaeb" style="width: 100.0%; height: 100.0%;">Employee: 9999<br>Postcode: YO90 1WR</div>`)[0];
+                popup_82895e68cea1c950bd5ce80dfecc0dd0.setContent(html_b56bfcd06b7e65a40ad1f79a3386aaeb);
+            
+        
+
+        marker_a2a663e0992535c867e65508efdfb3ab.bindPopup(popup_82895e68cea1c950bd5ce80dfecc0dd0)
+        ;
+
+        
+    
+</script>
+</html>

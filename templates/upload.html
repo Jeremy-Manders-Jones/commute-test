@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Commute - Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-form {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .button {
+            margin: 5px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Commute Tool</h1>
+
+    <div class="upload-form">
+        <h2>1) Upload employee file (Employee Number, postcode)</h2>
+        <form action="/" method="post" enctype="multipart/form-data">
+            <p>Select an Excel (.xlsx, .xls) or CSV file</p>
+            <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
+            <br>
+            <button type="submit" class="button">Upload Employees</button>
+        </form>
+    </div>
+
+    <div class="upload-form">
+        <h2>3) Upload route file (Employee name, start_postcode, end_postcode)</h2>
+        <form action="/upload_route" method="post" enctype="multipart/form-data">
+            <p>Select an Excel (.xlsx, .xls) or CSV file</p>
+            <input type="file" name="route_file" accept=".csv,.xlsx,.xls" required>
+            <br>
+            <button type="submit" class="button">Upload Routes</button>
+        </form>
+    </div>
+
+    <h2>Actions</h2>
+    <div style="margin-top: 20px;">
+        <form action="/export_csv" method="get" style="display: inline-block;">
+            <button type="submit" class="button">2) Export Employee CSV</button>
+        </form>
+
+        <form action="/export_route_csv" method="get" style="display: inline-block;">
+            <button type="submit" class="button">4) Export Route CSV</button>
+        </form>
+    </div>
+
+</body>
+</html>

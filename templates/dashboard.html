@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Commute Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --btn:#2196F3; --btn2:#4CAF50; --btn3:#FF9800; --btn4:#666; --btn5:#555; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    .section { margin-bottom: 40px; border: 1px solid #eee; border-radius: 8px; padding: 20px; }
+    .section h2 { margin-top: 0; }
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .button { padding: 10px 20px; background-color: var(--btn); color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+    .button:hover { opacity: 0.9; }
+    select, input[type="file"] { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
+    .map-container { width: 100%; height: 600px; margin-top: 10px; }
+    iframe { width: 100%; height: 100%; border: 1px solid #ccc; border-radius: 5px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+    /* spinner */
+    .spinner { width:18px; height:18px; border:3px solid rgba(0,0,0,0.1); border-left-color:#09f; border-radius:50%; animation: spin 1s linear infinite; display:inline-block; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* toast */
+    .toast { position: fixed; right: 20px; bottom: 20px; background:#333; color:#fff; padding:10px 14px; border-radius:6px; display:none; box-shadow:0 2px 6px rgba(0,0,0,0.2); }
+    .status { margin-top:8px; min-height:22px; display:flex; align-items:center; gap:8px; color:#333; }
+  </style>
+</head>
+<body>
+  <h1>Commute Dashboard</h1>
+
+  <div class="controls" style="margin-bottom: 20px;">
+    <form action="/" method="post" enctype="multipart/form-data" style="display:inline;">
+      <input type="file" name="file" accept=".csv,.xlsx,.xls" required aria-label="Choose data file">
+      <button type="submit" class="button">1. Load New File</button>
+    </form>
+
+    <form action="/export_csv" method="get" style="display:inline;">
+      <button type="submit" class="button" style="background-color: var(--btn2);">2. Export File</button>
+    </form>
+
+    <form id="route-upload-form" action="/upload_route" method="post" enctype="multipart/form-data" style="display:inline;">
+      <input type="file" name="route_file" accept=".csv,.xlsx,.xls" required aria-label="Choose route file">
+      <button type="submit" class="button" style="background-color: var(--btn3);">3. Load Route File</button>
+    </form>
+
+    <button id="reset_view_btn" class="button" style="background-color: var(--btn4); margin-left:8px;">Reset View</button>
+
+    <a id="download_geojson" href="/download_route_geoms_geojson" class="button" style="background-color: var(--btn5); margin-left:8px; text-decoration:none; padding:10px 12px; display:inline-flex; align-items:center;">Download GeoJSON</a>
+
+    <a id="download_geocsv" href="/download_route_geoms_csv" class="button" style="background-color: var(--btn5); margin-left:8px; text-decoration:none; padding:10px 12px; display:inline-flex; align-items:center;">Download CSV</a>
+  </div>
+
+  <div style="margin-bottom:10px; display:flex; gap:12px; align-items:center; flex-wrap: wrap;">
+    {% if employees|default([]) %}
+    <div>
+      <label for="employee_select">Employee (locations):</label>
+      <select id="employee_select">
+        <option value="">-- choose --</option>
+        {% for e in employees %}
+          <option value="{{ e }}">{{ e }}</option>
+        {% endfor %}
+      </select>
+      <button id="show_location_btn" class="button">Show Location</button>
+    </div>
+    {% endif %}
+
+    {% if route_employees|default([]) %}
+    <div>
+      <label for="route_employee_select">Employee (routes):</label>
+      <select id="route_employee_select">
+        <option value="">-- choose --</option>
+        {% for e in route_employees %}
+          <option value="{{ e }}">{{ e }}</option>
+        {% endfor %}
+      </select>
+      <button id="show_route_btn" class="button">Show Route</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="map-container" role="region" aria-label="Map">
+    <iframe
+      id="main_mapframe"
+      title="Map"
+      src="{% if map_url %}{{ map_url }}{% else %}about:blank{% endif %}"
+      referrerpolicy="no-referrer-when-downgrade"
+      loading="eager">
+    </iframe>
+  </div>
+
+  <div id="status_area" class="status" aria-live="polite">
+    <span id="spinner" class="sr-only" aria-hidden="true"></span>
+    <span id="status_text"></span>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (function(){
+    // ----------- Jinja-safe embedded data (avoid undefined -> invalid JS) -----------
+    const embeddedEmployees = {{ (employees_coords|default({}))|tojson|safe }};
+    const embeddedRoutes    = {{ (route_coords   |default({}))|tojson|safe }};
+    const mapSrc            = `{% if map_url %}{{ map_url }}{% else %}{% endif %}`;
+
+    // Optional: tighten postMessage target by origin (fallback to '*')
+    let mapTargetOrigin = '*';
+    try {
+      if (mapSrc && mapSrc.startsWith('http')) {
+        mapTargetOrigin = new URL(mapSrc).origin;
+      }
+    } catch(_) {}
+
+    // ----------- DOM refs (all optional-safe) -----------
+    const showLocationBtn    = document.getElementById('show_location_btn');
+    const showRouteBtn       = document.getElementById('show_route_btn');
+    const employeeSelect     = document.getElementById('employee_select');
+    const routeEmployeeSelect= document.getElementById('route_employee_select');
+    const mapFrame           = document.getElementById('main_mapframe');
+    const spinnerEl          = document.getElementById('spinner');
+    const statusTextEl       = document.getElementById('status_text');
+    const toastEl            = document.getElementById('toast');
+    const resetBtn           = document.getElementById('reset_view_btn');
+
+    // ----------- Status / Toast / Spinner helpers -----------
+    function setStatus(msg){ if(statusTextEl) statusTextEl.textContent = msg || ''; }
+    function showSpinner(show){
+      if(!spinnerEl) return;
+      if(show){
+        spinnerEl.className = 'spinner';
+        spinnerEl.setAttribute('aria-hidden', 'false');
+      }else{
+        spinnerEl.className = 'sr-only';
+        spinnerEl.setAttribute('aria-hidden', 'true');
+      }
+    }
+    function showToast(msg, ms=3000){
+      if(!toastEl) return;
+      toastEl.textContent = msg || '';
+      toastEl.style.display = 'block';
+      setTimeout(()=>{ toastEl.style.display = 'none'; }, ms);
+    }
+
+    // ----------- Robust fetch helpers -----------
+    async function safeFetchJSON(url, opts){
+      const res = await fetch(url, opts);
+      let data = null;
+      try { data = await res.clone().json(); } catch(_) { /* non-JSON */ }
+      if(!res.ok){
+        const errMsg = (data && (data.error || data.message)) || `HTTP ${res.status}`;
+        throw new Error(errMsg);
+      }
+      return data ?? {};
+    }
+
+    // ----------- Iframe messaging with ready-queue -----------
+    let mapWindow = null;
+    let mapReady = false;
+    const messageQueue = [];
+
+    function flushQueue(){
+      if(!mapWindow || !mapReady) return;
+      while(messageQueue.length){
+        const msg = messageQueue.shift();
+        try { mapWindow.postMessage(msg, mapTargetOrigin); } catch(e){ console.warn('postMessage failed:', e); }
+      }
+    }
+
+    function postToIframe(message){
+      if(!mapFrame) return;
+      if(!mapWindow) {
+        mapWindow = mapFrame.contentWindow || null;
+      }
+      if(mapWindow && mapReady){
+        try { mapWindow.postMessage(message, mapTargetOrigin); } catch(e){ console.warn('postMessage failed:', e); }
+      } else {
+        messageQueue.push(message);
+      }
+    }
+
+    // Handshake: the map page should send {type:'mapReady'} once initialised
+    window.addEventListener('message', (ev)=>{
+      // Optional origin check:
+      if(mapTargetOrigin !== '*' && ev.origin !== mapTargetOrigin) return;
+      const d = ev.data;
+      if(d && d.type === 'mapReady'){
+        mapReady = true;
+        flushQueue();
+      }
+    });
+
+    // As a fallback, try flushing queue after iframe load
+    mapFrame?.addEventListener('load', () => {
+      mapWindow = mapFrame.contentWindow || null;
+      // poke the map to request readiness if it supports it
+      try { mapWindow?.postMessage({type:'ping'}, mapTargetOrigin); } catch(_) {}
+      setTimeout(flushQueue, 200);
+    });
+
+    // ----------- Utilities -----------
+    function asKey(id){
+      // Avoid Number() coercion; keep exact key semantics
+      return String(id ?? '').trim();
+    }
+    function isNumber(n){ return typeof n === 'number' && Number.isFinite(n); }
+
+    // ----------- Actions -----------
+    async function showLocation(id){
+      if(showLocationBtn) showLocationBtn.disabled = true;
+      showSpinner(true); setStatus('Flying to employee...');
+      try{
+        const key = asKey(id);
+        const entry = embeddedEmployees?.[key];
+        if(entry && isNumber(entry.lat) && isNumber(entry.lng)){
+          postToIframe({ action:'flyTo', lat: entry.lat, lng: entry.lng, zoom: 13 });
+        } else {
+          const data = await safeFetchJSON(`/api/employee/${encodeURIComponent(key)}`);
+          if(!isNumber(data.lat) || !isNumber(data.lng)) throw new Error('Invalid coordinates');
+          postToIframe({ action:'flyTo', lat: data.lat, lng: data.lng, zoom: 13 });
+        }
+        setStatus('Done');
+      } catch(e){
+        console.error(e);
+        setStatus('Error');
+        showToast(`Location error: ${e.message}`);
+      } finally {
+        showSpinner(false);
+        if(showLocationBtn) showLocationBtn.disabled = false;
+      }
+    }
+
+    async function showRoute(id){
+      if(showRouteBtn) showRouteBtn.disabled = true;
+      showSpinner(true); setStatus('Loading route...');
+      try{
+        const key = asKey(id);
+        const r = embeddedRoutes?.[key];
+
+        function tryPostRoute(obj){
+          if(obj?.route){
+            postToIframe({ action:'showRoute', route: obj.route });
+            return true;
+          }
+          if(obj?.start && obj?.end){
+            const ok = isNumber(obj.start.lat) && isNumber(obj.start.lng) && isNumber(obj.end.lat) && isNumber(obj.end.lng);
+            if(ok){
+              postToIframe({ action:'showRoute', start: obj.start, end: obj.end });
+              return true;
+            }
+          }
+          return false;
+        }
+
+        if(!tryPostRoute(r)){
+          const data = await safeFetchJSON(`/api/route/${encodeURIComponent(key)}`);
+          if(!tryPostRoute(data)) throw new Error('Invalid route payload');
+        }
+
+        setStatus('Done');
+      } catch(e){
+        console.error(e);
+        setStatus('Error');
+        showToast(`Route error: ${e.message}`);
+      } finally {
+        showSpinner(false);
+        if(showRouteBtn) showRouteBtn.disabled = false;
+      }
+    }
+
+    function resetView(){
+      const pts = [];
+      if(embeddedEmployees && typeof embeddedEmployees === 'object'){
+        for(const k of Object.keys(embeddedEmployees)){
+          const p = embeddedEmployees[k];
+          if(p && isNumber(p.lat) && isNumber(p.lng)) pts.push([p.lat, p.lng]);
+        }
+      }
+      if(pts.length === 0){ setStatus('No employee points'); return; }
+      postToIframe({ action:'fitBounds', points: pts });
+      setStatus('Reset view');
+    }
+
+    // ----------- Wire up events (defensively) -----------
+    if(showLocationBtn && employeeSelect){
+      showLocationBtn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        const id = employeeSelect.value;
+        if(!id){ showToast('Please select an employee'); return; }
+        showLocation(id);
+      });
+    }
+
+    if(showRouteBtn && routeEmployeeSelect){
+      showRouteBtn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        const id = routeEmployeeSelect.value;
+        if(!id){ showToast('Please select an employee'); return; }
+        showRoute(id);
+      });
+    }
+
+    if(resetBtn){
+      resetBtn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        resetView();
+      });
+    }
+
+    // Initial status
+    setStatus('');
+  })();
+  </script>
+</body>
+</html>

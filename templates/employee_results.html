@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Employee Locations</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            padding: 10px;
+            background-color: #f5f5f5;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            opacity: 0.9;
+        }
+        .map-container {
+            flex-grow: 1;
+            min-height: 0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #mapframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ccc;
+        }
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Employee Locations</h1>
+        <div class="controls">
+            <a href="/" class="button" style="background-color: #2196F3;">Upload New File</a>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label for="employee_select">Select Employee:</label>
+                <select id="employee_select">
+                    <option value="">-- choose --</option>
+                    {% for e in employees %}
+                        <option value="{{ e }}">{{ e }}</option>
+                    {% endfor %}
+                </select>
+                <button id="show_btn" class="button">Show Location</button>
+            </div>
+        </div>
+    </div>
+    <div class="map-container">
+        <iframe id="mapframe" src="{% if first_employee %}/employee_map/{{ first_employee }}{% else %}about:blank{% endif %}" style="width:100%;height:600px;border:1px solid #ccc;"></iframe>
+    </div>
+    <script>
+        document.getElementById('show_btn').addEventListener('click', function(){
+            const sel = document.getElementById('employee_select');
+            const val = sel.value;
+            if(!val) return alert('Choose an employee');
+            const iframe = document.getElementById('mapframe');
+            iframe.src = '/employee_map/' + val;
+        });
+        // Auto-select first employee if available
+        window.addEventListener('DOMContentLoaded', function() {
+            var sel = document.getElementById('employee_select');
+            if (sel.options.length > 1 && sel.selectedIndex === 0) {
+                sel.selectedIndex = 1;
+            }
+        });
+    </script>
+</body>
+</html>
